@@ -1,40 +1,92 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
+import os
 
 IMG_SIZE = 224
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
+
+# Load model and classes
 model = keras.models.load_model('plant_classifier_model.keras')
 with open('class_names.txt') as f:
     class_names = f.read().splitlines()
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for React Native requests
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint for Render"""
+    return jsonify({'status': 'healthy', 'model_loaded': model is not None}), 200
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # Accept up to 4 images with keys: image1, image2, image3, image4 (or just image for single)
-    image_keys = ['image', 'image1', 'image2', 'image3', 'image4']
+    # Accept up to 4 images under the same key: images[]
+    files = request.files.getlist('images')
+    if not files or len(files) == 0:
+        return jsonify({'error': 'No images provided. Please upload 1-4 images using the key images[].'}), 400
+    if len(files) > 4:
+        return jsonify({'error': 'Too many images. Maximum is 4.'}), 400
     results = []
-    for key in image_keys:
-        if key in request.files:
-            file = request.files[key]
-            # Check file extension
-            if not (file.filename.lower().endswith(('.jpg', '.jpeg', '.png'))):
-                results.append({'error': f'Unsupported file type for {file.filename}'})
-                continue
-            try:
-                img = keras.preprocessing.image.load_img(file, target_size=(IMG_SIZE, IMG_SIZE))
-                img_array = keras.preprocessing.image.img_to_array(img)
-                img_array = tf.expand_dims(img_array, 0)
-                predictions = model.predict(img_array)
-                predicted_class = class_names[np.argmax(predictions[0])]
-                confidence = float(np.max(predictions[0]))
-                results.append({'class': predicted_class, 'confidence': confidence, 'filename': file.filename})
-            except Exception as e:
-                results.append({'error': str(e), 'filename': file.filename})
-    if not results:
-        return jsonify({'error': 'No valid images provided. Please upload 1-4 images with keys image, image1, image2, image3, or image4.'}), 400
-    return jsonify({'results': results})
+    for idx, file in enumerate(files):
+        # Check file extension
+        if not file.filename or not (file.filename.lower().endswith(('.jpg', '.jpeg', '.png'))):
+            results.append({'error': f'Unsupported file type for {file.filename or "unknown"}', 'index': idx})
+            continue
+        
+        # Check if file is empty
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size == 0:
+            results.append({'error': 'Empty file', 'filename': file.filename, 'index': idx})
+            continue
+        
+        if file_size > MAX_FILE_SIZE:
+            results.append({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)', 'filename': file.filename, 'index': idx})
+            continue
+            
+        try:
+            img = keras.preprocessing.image.load_img(file.stream, target_size=(IMG_SIZE, IMG_SIZE))
+            img_array = keras.preprocessing.image.img_to_array(img)
+            img_array = tf.expand_dims(img_array, 0)
+            
+            # Normalize if your model expects it (adjust based on your training)
+            # img_array = img_array / 255.0
+            
+            predictions = model.predict(img_array, verbose=0)  # Silent prediction
+            predicted_class = class_names[np.argmax(predictions[0])]
+            confidence = float(np.max(predictions[0]))
+            
+            # Return top 3 predictions for better insights
+            top_3_idx = np.argsort(predictions[0])[-3:][::-1]
+            top_3_predictions = [
+                {'class': class_names[i], 'confidence': float(predictions[0][i])}
+                for i in top_3_idx
+            ]
+            
+            results.append({
+                'class': predicted_class,
+                'confidence': confidence,
+                'filename': file.filename,
+                'index': idx,
+                'top_predictions': top_3_predictions
+            })
+        except Exception as e:
+            app.logger.error(f'Error processing {file.filename}: {str(e)}')
+            results.append({'error': str(e), 'filename': file.filename, 'index': idx})
+    
+    return jsonify({'results': results, 'total_images': len(files)})
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle file size exceeded"""
+    return jsonify({'error': f'File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB'}), 413
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
