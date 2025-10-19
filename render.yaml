@@ -2,11 +2,11 @@ services:
   - type: web
     name: plant-api
     env: python
-    runtime: python-3.11 # Specify Python version
+    runtime: python-3.10
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --worker-class sync
     plan: free
-    healthCheckPath: /health # Uses the health endpoint we added
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.10.0
