@@ -9,4 +9,9 @@ files = [
     # ('images', open('test3.jpeg', 'rb')),
 ]
 response = requests.post(url, files=files)
-print(response.json())
+print(f"Status Code: {response.status_code}")
+print(f"Response Text: {response.text}")
+if response.status_code == 200:
+    print(f"JSON: {response.json()}")
+else:
+    print("Error: Non-200 status code")
