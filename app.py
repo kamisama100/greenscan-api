@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow import keras
 import os
+import io
 
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
@@ -51,7 +52,9 @@ def predict():
             continue
             
         try:
-            img = keras.preprocessing.image.load_img(file.stream, target_size=(IMG_SIZE, IMG_SIZE))
+            # Read file into BytesIO for compatibility with gunicorn
+            file_bytes = io.BytesIO(file.read())
+            img = keras.preprocessing.image.load_img(file_bytes, target_size=(IMG_SIZE, IMG_SIZE))
             img_array = keras.preprocessing.image.img_to_array(img)
             img_array = tf.expand_dims(img_array, 0)
             
