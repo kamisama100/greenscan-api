@@ -9,8 +9,12 @@ import io
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
 
-# Load model and classes
-model = keras.models.load_model('plant_classifier_model.keras')
+
+# Load TFLite model and classes
+interpreter = tf.lite.Interpreter(model_path='plant_classifier_model.tflite')
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 with open('class_names.txt') as f:
     class_names = f.read().splitlines()
 
@@ -56,22 +60,24 @@ def predict():
             file_bytes = io.BytesIO(file.read())
             img = keras.preprocessing.image.load_img(file_bytes, target_size=(IMG_SIZE, IMG_SIZE))
             img_array = keras.preprocessing.image.img_to_array(img)
-            img_array = tf.expand_dims(img_array, 0)
-            
-            # Normalize if your model expects it (adjust based on your training)
+            img_array = np.expand_dims(img_array, axis=0)
+            # If you normalized during training, normalize here as well
             # img_array = img_array / 255.0
-            
-            predictions = model.predict(img_array, verbose=0)  # Silent prediction
-            predicted_class = class_names[np.argmax(predictions[0])]
-            confidence = float(np.max(predictions[0]))
-            
+
+            # Set input tensor
+            interpreter.set_tensor(input_details[0]['index'], img_array.astype(input_details[0]['dtype']))
+            interpreter.invoke()
+            predictions = interpreter.get_tensor(output_details[0]['index'])[0]
+            predicted_class = class_names[np.argmax(predictions)]
+            confidence = float(np.max(predictions))
+
             # Return top 3 predictions for better insights
-            top_3_idx = np.argsort(predictions[0])[-3:][::-1]
+            top_3_idx = np.argsort(predictions)[-3:][::-1]
             top_3_predictions = [
-                {'class': class_names[i], 'confidence': float(predictions[0][i])}
+                {'class': class_names[i], 'confidence': float(predictions[i])}
                 for i in top_3_idx
             ]
-            
+
             results.append({
                 'class': predicted_class,
                 'confidence': confidence,

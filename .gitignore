@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 dataset/
 temp_uploads/
+plant_classifier_model.keras

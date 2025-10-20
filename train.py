@@ -161,9 +161,17 @@ history = model.fit(
     ]
 )
 
+
 # 6. Save model
 model.save('plant_classifier_model.keras')
 print("Model saved!")
+
+# 6b. Convert and save as TensorFlow Lite
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+with open('plant_classifier_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+print("TensorFlow Lite model saved!")
 
 # Save class names for later use
 with open('class_names.txt', 'w') as f:
