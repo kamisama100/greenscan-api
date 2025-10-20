@@ -1,17 +1,18 @@
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import tensorflow as tf
 import numpy as np
-from tensorflow import keras
 import os
 import io
+from ai_edge_litert import Interpreter
 
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
 
 
-# Load TFLite model and classes
-interpreter = tf.lite.Interpreter(model_path='plant_classifier_model.tflite')
+
+# Load TFLite model and classes using LiteRT
+interpreter = Interpreter(model_path='plant_classifier_model.tflite')
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
@@ -25,7 +26,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for Render"""
-    return jsonify({'status': 'healthy', 'model_loaded': model is not None}), 200
+    return jsonify({'status': 'healthy', 'interpreter_loaded': interpreter is not None}), 200
 
 @app.route('/predict', methods=['POST'])
 def predict():
