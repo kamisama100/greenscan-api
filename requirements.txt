@@ -3,4 +3,4 @@ flask-cors
 tensorflow-cpu
 pillow
 gunicorn
-ai_edge_litert
+tflite-runtime

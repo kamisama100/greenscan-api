@@ -4,7 +4,7 @@ from flask_cors import CORS
 import numpy as np
 import os
 import io
-from ai_edge_litert import Interpreter
+from tflite_runtime.interpreter import Interpreter
 
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
