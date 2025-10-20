@@ -4,7 +4,7 @@ from flask_cors import CORS
 import numpy as np
 import os
 import io
-from tflite_runtime.interpreter import Interpreter
+import tensorflow as tf
 
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
@@ -12,7 +12,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
 
 
 # Load TFLite model and classes using LiteRT
-interpreter = Interpreter(model_path='plant_classifier_model.tflite')
+interpreter = tf.lite.Interpreter(model_path='plant_classifier_model.tflite')
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
