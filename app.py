@@ -1,15 +1,13 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 import os
 import io
 import tensorflow as tf
+from PIL import Image  # Add this import
 
 IMG_SIZE = 224
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
-
-
 
 # Load TFLite model and classes using LiteRT
 interpreter = tf.lite.Interpreter(model_path='plant_classifier_model.tflite')
@@ -59,8 +57,12 @@ def predict():
         try:
             # Read file into BytesIO for compatibility with gunicorn
             file_bytes = io.BytesIO(file.read())
-            img = keras.preprocessing.image.load_img(file_bytes, target_size=(IMG_SIZE, IMG_SIZE))
-            img_array = keras.preprocessing.image.img_to_array(img)
+            
+            # Use PIL and numpy directly (no keras dependency)
+            img = Image.open(file_bytes)
+            img = img.resize((IMG_SIZE, IMG_SIZE))
+            img = img.convert('RGB')  # Ensure RGB format
+            img_array = np.array(img, dtype=np.float32)
             img_array = np.expand_dims(img_array, axis=0)
             # If you normalized during training, normalize here as well
             # img_array = img_array / 255.0
